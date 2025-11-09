@@ -1,0 +1,14 @@
+{
+  "name": "get_place_details",
+  "description": "Get detailed information about a specific place including ratings, reviews, opening hours, contact info. Use this when the user wants more details about a place.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "placeId": {
+        "type": "string",
+        "description": "The Google Maps Place ID"
+      }
+    },
+    "required": ["placeId"]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "search_places",
+  "description": "Search for places, restaurants, shops, or any location based on a text query. Use this when the user asks to find places, restaurants, cafes, hotels, or any business.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "The search query (e.g., 'coffee shops', 'italian restaurants', 'hotels in Paris')"
+      },
+      "location": {
+        "type": "string",
+        "description": "Optional location to search near (e.g., 'New York', '40.7128,-74.0060')"
+      },
+      "radius": {
+        "type": "number",
+        "description": "Search radius in meters (default: 5000, max: 50000)"
+      }
+    },
+    "required": ["query"]
+  }
+}

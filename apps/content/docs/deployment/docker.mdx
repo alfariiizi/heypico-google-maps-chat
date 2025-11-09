@@ -1,0 +1,471 @@
+---
+title: Docker Deployment
+description: Deploy with Docker and Docker Compose
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Docker Deployment
+
+Deploy HeyPico Maps using Docker for easy setup and management.
+
+## Quick Deploy
+
+<Steps>
+  <Step>
+    ### Clone Repository
+    ```bash
+    git clone https://github.com/alfariiizi/heypico-google-maps-chat.git
+    cd heypico-google-maps-chat
+    ```
+  </Step>
+
+  <Step>
+    ### Configure Environment
+    Create `.env` file:
+    ```bash
+    GOOGLE_MAPS_API_KEY=your-api-key-here
+    API_KEY=your-backend-api-key  # Optional
+    ```
+  </Step>
+
+  <Step>
+    ### Start Services
+    ```bash
+    docker-compose up -d
+    ```
+  </Step>
+
+  <Step>
+    ### Pull LLM Model
+    ```bash
+    docker exec ollama ollama pull llama3.2
+    ```
+  </Step>
+
+  <Step>
+    ### Verify
+    ```bash
+    curl http://localhost:8432/api/maps/health
+    ```
+  </Step>
+</Steps>
+
+## Docker Compose Configuration
+
+### Default Setup
+
+```yaml
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "8432:8432"
+    environment:
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  open_webui_data:
+```
+
+### Production Configuration
+
+```yaml
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-prod
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui-prod
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - ENABLE_SIGNUP=false  # Disable signups in production
+    volumes:
+      - open_webui_data:/app/backend/data
+    depends_on:
+      - ollama
+      - backend
+    restart: always
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-prod
+    ports:
+      - "8432:8432"
+    environment:
+      - PORT=8432
+      - NODE_ENV=production
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - API_KEY=${API_KEY}
+      - RATE_LIMIT_WINDOW_MS=60000
+      - RATE_LIMIT_MAX_REQUESTS=100
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8432/api/maps/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+volumes:
+  ollama_data:
+    driver: local
+  open_webui_data:
+    driver: local
+```
+
+## Environment Variables
+
+### Required Variables
+
+```bash
+# Google Maps API Key (REQUIRED)
+GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+
+# Backend API Key (RECOMMENDED for production)
+API_KEY=your-secure-random-key
+
+# Open WebUI Secret (RECOMMENDED)
+WEBUI_SECRET_KEY=your-secret-key
+```
+
+### Optional Variables
+
+```bash
+# Disable signups in production
+ENABLE_SIGNUP=false
+
+# Rate limiting
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Node environment
+NODE_ENV=production
+```
+
+## Makefile Commands
+
+The project includes a Makefile for easy management:
+
+```bash
+make start          # Start all services
+make stop           # Stop all services
+make restart        # Restart all services
+make logs           # Show all logs
+make logs-backend   # Show backend logs only
+make pull-model     # Pull llama3.2 model
+make list-models    # List installed models
+make status         # Show service status
+make rebuild        # Rebuild backend
+make clean          # Clean everything
+```
+
+## Resource Requirements
+
+### Minimum
+
+- **CPU**: 4 cores
+- **RAM**: 8GB
+- **Disk**: 20GB
+
+### Recommended
+
+- **CPU**: 8 cores
+- **RAM**: 16GB
+- **Disk**: 50GB
+- **GPU**: Optional (speeds up LLM inference)
+
+## Network Configuration
+
+### Port Mapping
+
+| Service | Internal Port | External Port | Description |
+|---------|---------------|---------------|-------------|
+| Open WebUI | 8080 | 3000 | Web interface |
+| Ollama | 11434 | 11434 | LLM API |
+| Backend | 8432 | 8432 | Maps API |
+
+### Firewall Rules
+
+If deploying on a server, open these ports:
+
+```bash
+# UFW (Ubuntu)
+sudo ufw allow 3000/tcp   # Open WebUI
+sudo ufw allow 8432/tcp   # Backend API
+
+# iptables
+sudo iptables -A INPUT -p tcp --dport 3000 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 8432 -j ACCEPT
+```
+
+<Callout type="warn">
+  Do NOT expose Ollama port (11434) to the internet unless necessary. It should only be accessible within the Docker network.
+</Callout>
+
+## Data Persistence
+
+### Volumes
+
+Data is persisted in Docker volumes:
+
+```bash
+# List volumes
+docker volume ls
+
+# Inspect volume
+docker volume inspect heypico_ollama_data
+
+# Backup volume
+docker run --rm -v heypico_ollama_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/ollama-backup.tar.gz /data
+
+# Restore volume
+docker run --rm -v heypico_ollama_data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/ollama-backup.tar.gz -C /
+```
+
+### What's Stored
+
+- **ollama_data**: Downloaded LLM models (2-8GB per model)
+- **open_webui_data**: User accounts, chat history, settings
+
+## Health Checks
+
+### Backend Health Check
+
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "-q", "--spider", "http://localhost:8432/api/maps/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+```
+
+### Manual Health Checks
+
+```bash
+# Backend
+curl http://localhost:8432/api/maps/health
+
+# Ollama
+curl http://localhost:11434/api/tags
+
+# Open WebUI
+curl http://localhost:3210
+```
+
+## Monitoring
+
+### View Logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f backend
+docker-compose logs -f ollama
+docker-compose logs -f open-webui
+
+# Last 100 lines
+docker-compose logs --tail=100 backend
+```
+
+### Container Stats
+
+```bash
+# Real-time stats
+docker stats
+
+# Specific container
+docker stats heypico-backend
+```
+
+## Updating
+
+### Update Backend Code
+
+```bash
+# Pull latest code
+git pull
+
+# Rebuild and restart
+make rebuild
+```
+
+### Update Base Images
+
+```bash
+# Pull latest images
+docker-compose pull
+
+# Restart with new images
+docker-compose up -d
+```
+
+### Update Models
+
+```bash
+# Pull latest model version
+docker exec ollama ollama pull llama3.2
+
+# List installed models
+docker exec ollama ollama list
+```
+
+## Troubleshooting
+
+### Container Won't Start
+
+```bash
+# Check logs
+docker-compose logs backend
+
+# Check container status
+docker ps -a
+
+# Restart container
+docker-compose restart backend
+```
+
+### Out of Disk Space
+
+```bash
+# Check disk usage
+df -h
+
+# Clean Docker
+docker system prune -a
+
+# Remove old models
+docker exec ollama ollama rm old-model-name
+```
+
+### Permission Issues
+
+```bash
+# Fix volume permissions
+docker-compose down
+sudo chown -R $USER:$USER ./
+docker-compose up -d
+```
+
+## Security Best Practices
+
+<Callout type="warn" title="Production Security Checklist">
+  -  Enable API key authentication (`API_KEY`)
+  -  Disable signups (`ENABLE_SIGNUP=false`)
+  -  Use HTTPS (reverse proxy with Nginx/Caddy)
+  -  Set firewall rules
+  -  Use strong secrets (`WEBUI_SECRET_KEY`)
+  -  Regular updates
+  -  Monitor logs
+  -  Backup data regularly
+</Callout>
+
+## Reverse Proxy Setup
+
+### Nginx
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:3210;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /api/maps/ {
+        proxy_pass http://localhost:8432;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+### Caddy
+
+```
+yourdomain.com {
+    reverse_proxy localhost:3000
+}
+
+api.yourdomain.com {
+    reverse_proxy localhost:8432
+}
+```
+
+## Scaling
+
+### Horizontal Scaling
+
+Backend can be scaled:
+
+```yaml
+backend:
+  deploy:
+    replicas: 3
+  # Add load balancer
+```
+
+<Callout type="info">
+  Rate limiter uses in-memory storage. For multi-instance deployments, use Redis for distributed rate limiting.
+</Callout>
+
+## Next Steps
+
+- [Production Deployment](/docs/deployment/production)
+- [Security Best Practices](/docs/architecture/security)
+- [Monitoring Guide](/docs/guides/monitoring)

@@ -203,7 +203,7 @@ See `backend/TESTING.md` for comprehensive testing guide.
 
 ## 📞 Service URLs
 
-- **Open WebUI**: http://localhost:3000
+- **Open WebUI**: http://localhost:3210
 - **Backend API**: http://localhost:8432
 - **Ollama**: http://localhost:11434
 

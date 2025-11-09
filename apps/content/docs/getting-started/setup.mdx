@@ -1,0 +1,224 @@
+---
+title: Setup Open WebUI Functions
+description: Configure LLM function calling for Google Maps integration
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Setup Open WebUI Functions
+
+Configure your LLM to automatically detect when to use Google Maps APIs.
+
+## What are Functions?
+
+Functions allow the LLM to call external APIs when needed. When a user asks "Find coffee shops near me", 
+the LLM detects this needs location data and automatically calls the backend API.
+
+## Setup Instructions
+
+<Steps>
+  <Step>
+    ### Access Open WebUI
+    
+    1. Open http://localhost:3210 in your browser
+    2. Create an account (if first time)
+    3. Sign in
+  </Step>
+
+  <Step>
+    ### Navigate to Functions
+    
+    1. Click on your profile (bottom left)
+    2. Select **Workspace**
+    3. Click on **Functions** tab
+  </Step>
+
+  <Step>
+    ### Copy the Function Code
+    
+    Open the file `backend/open-webui-functions/maps_functions.py` in your project.
+    
+    Copy all the contents of this file.
+  </Step>
+
+  <Step>
+    ### Create New Function
+    
+    1. In Open WebUI Functions page, click **Create Function**
+    2. Paste the copied code
+    3. Give it a name: "Google Maps Integration"
+    4. Click **Save**
+  </Step>
+
+  <Step>
+    ### Enable the Function
+    
+    1. Toggle the switch to **Enable** the function
+    2. Make sure it's enabled for your model (llama3.2 or mistral)
+    3. Click **Save**
+  </Step>
+
+  <Step>
+    ### Test the Integration
+    
+    Go to the chat interface and try:
+    
+    ```
+    Find Italian restaurants in New York
+    ```
+    
+    The LLM should automatically call the backend API and return results with Google Maps links!
+  </Step>
+</Steps>
+
+<Callout type="info" title="Supported Models">
+  Function calling works best with these models:
+  - llama3.2 (recommended)
+  - mistral
+  - mixtral
+  
+  Make sure you've pulled at least one of these models.
+</Callout>
+
+## Understanding the Functions
+
+The `maps_functions.py` file contains 4 main functions:
+
+### 1. Search Places
+
+```python
+def search_places(query: str, location: str = None, radius: int = 5000):
+    """Search for places using text query"""
+```
+
+Used when user asks: "Find coffee shops", "Show me restaurants in NYC"
+
+### 2. Get Nearby Places
+
+```python
+def get_nearby_places(location: str, radius: int = 1500, type: str = None):
+    """Get places near a specific location"""
+```
+
+Used when user asks: "What's near Times Square?", "Find places around Central Park"
+
+### 3. Get Place Details
+
+```python
+def get_place_details(place_id: str):
+    """Get detailed information about a specific place"""
+```
+
+Used when user asks: "Tell me more about this restaurant", "What are the hours?"
+
+### 4. Get Directions
+
+```python
+def get_directions(origin: str, destination: str, mode: str = "driving"):
+    """Get directions between two locations"""
+```
+
+Used when user asks: "How do I get to Central Park?", "Directions to the Empire State Building"
+
+## Function Configuration
+
+### Backend URL
+
+The functions call `http://host.docker.internal:8432` by default. This works when:
+- Open WebUI is running in Docker
+- Backend is accessible from the Docker network
+
+If you need to change the URL, edit the `BACKEND_URL` in `maps_functions.py`:
+
+```python
+BACKEND_URL = "http://your-backend-url:8432"
+```
+
+### API Authentication
+
+If you've set `API_KEY` in your backend configuration, update the function code:
+
+```python
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {YOUR_API_KEY}"
+}
+```
+
+## Troubleshooting
+
+### Function Not Being Called
+
+1. **Check function is enabled**
+   - Go to Workspace → Functions
+   - Ensure toggle is ON
+   - Verify it's enabled for your model
+
+2. **Check model supports function calling**
+   - Use llama3.2, mistral, or mixtral
+   - Older models may not support functions
+
+3. **Test backend connectivity**
+   ```bash
+   curl http://localhost:8432/api/maps/health
+   ```
+
+### Backend Connection Error
+
+If you see "Connection refused" errors:
+
+
+1. **Verify backend is running**
+   ```bash
+   make status
+   ```
+
+2. **Check Docker network**
+   - If backend is in Docker: use `http://backend:8432`
+   - If backend is local: use `http://host.docker.internal:8432`
+   - If running manually: use `http://localhost:8432`
+
+3. **Update BACKEND_URL in the function code**
+
+### No Results Returned
+
+1. **Check Google Maps API key is configured**
+   ```bash
+   # In backend container or local backend
+   echo $GOOGLE_MAPS_API_KEY
+   ```
+
+2. **Check backend logs**
+   ```bash
+   make logs-backend
+   ```
+
+3. **Verify APIs are enabled in Google Cloud Console**
+
+## Example Queries
+
+Try these queries in Open WebUI:
+
+### Search Examples
+- "Find the best pizza places in Brooklyn"
+- "Show me coffee shops near Times Square"
+- "I'm looking for Italian restaurants in Manhattan"
+
+### Directions Examples
+- "How do I get from Times Square to Central Park?"
+- "Give me walking directions to the Empire State Building"
+- "Navigate me to the Statue of Liberty"
+
+### Details Examples
+- "Tell me more about this place"
+- "What are the hours for this restaurant?"
+- "Show me reviews"
+
+## Next Steps
+
+Now that functions are set up:
+
+1. [Test Your Installation](/docs/getting-started/testing)
+2. [Learn About the API](/docs/api/overview)
+3. [Explore Architecture](/docs/architecture/overview)

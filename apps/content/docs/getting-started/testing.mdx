@@ -1,0 +1,290 @@
+---
+title: Testing
+description: Test your HeyPico Maps installation
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Testing Your Installation
+
+Verify everything is working correctly with these tests.
+
+## Quick Health Checks
+
+### 1. Check All Services
+
+```bash
+make status
+```
+
+Expected output:
+```
+NAME            STATUS
+ollama          running
+open-webui      running
+backend         running
+```
+
+### 2. Test Backend Health
+
+```bash
+make test-backend
+# or
+curl http://localhost:8432/api/maps/health
+```
+
+Expected response:
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "timestamp": "2024-01-09T12:00:00.000Z",
+    "service": "Google Maps API Integration"
+  }
+}
+```
+
+### 3. Test Ollama
+
+```bash
+# List installed models
+make list-models
+
+# Expected output should include:
+# llama3.2:latest
+```
+
+## API Endpoint Testing
+
+Test each endpoint to ensure proper functionality.
+
+<Tabs items={['Search Places', 'Nearby Places', 'Place Details', 'Directions']}>
+  <Tab value="Search Places">
+    ### Test Search Places
+    
+    ```bash
+    curl -X POST http://localhost:8432/api/maps/search-places \
+      -H "Content-Type: application/json" \
+      -d '{
+        "query": "coffee shops in Seattle",
+        "radius": 2000
+      }'
+    ```
+    
+    Expected: JSON response with coffee shop results including names, addresses, and ratings.
+  </Tab>
+
+  <Tab value="Nearby Places">
+    ### Test Nearby Places
+    
+    ```bash
+    curl -X POST http://localhost:8432/api/maps/nearby-places \
+      -H "Content-Type: application/json" \
+      -d '{
+        "location": "40.7128,-74.0060",
+        "radius": 1500,
+        "type": "restaurant"
+      }'
+    ```
+    
+    Expected: JSON response with nearby restaurants in New York City.
+  </Tab>
+
+  <Tab value="Place Details">
+    ### Test Place Details
+    
+    First, get a place_id from a search result, then:
+    
+    ```bash
+    curl -X POST http://localhost:8432/api/maps/place-details \
+      -H "Content-Type: application/json" \
+      -d '{
+        "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
+      }'
+    ```
+    
+    Expected: Detailed information including hours, phone, website, reviews.
+  </Tab>
+
+  <Tab value="Directions">
+    ### Test Directions
+    
+    ```bash
+    curl -X POST http://localhost:8432/api/maps/directions \
+      -H "Content-Type: application/json" \
+      -d '{
+        "origin": "Times Square, New York",
+        "destination": "Central Park, New York",
+        "mode": "walking"
+      }'
+    ```
+    
+    Expected: Route information with steps, distance, and duration.
+  </Tab>
+</Tabs>
+
+## LLM Integration Testing
+
+### Test in Open WebUI Chat
+
+Open http://localhost:3210 and try these queries:
+
+#### Basic Search
+```
+Find coffee shops in San Francisco
+```
+
+Expected: The LLM should call the search function and return formatted results with:
+- Place names
+- Addresses
+- Ratings
+- Google Maps links
+
+#### Nearby Search
+```
+What restaurants are near the Golden Gate Bridge?
+```
+
+Expected: Results for restaurants near the specified location.
+
+#### Directions
+```
+How do I get from Fisherman's Wharf to Alcatraz Island?
+```
+
+Expected: Turn-by-turn directions with distance and time.
+
+#### Multi-step Query
+```
+Find Italian restaurants in New York, then give me directions to the highest rated one
+```
+
+Expected: The LLM should:
+1. Search for Italian restaurants
+2. Identify the highest rated
+3. Get directions to that location
+
+## Verify Response Format
+
+All successful API responses should follow this structure:
+
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data here
+  }
+}
+```
+
+Error responses should look like:
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "ERROR_CODE",
+    "message": "Human readable message",
+    "statusCode": 400
+  }
+}
+```
+
+## Rate Limiting Test
+
+Test that rate limiting is working:
+
+```bash
+# Run this script to send 101 requests quickly
+for i in {1..101}; do
+  curl -X POST http://localhost:8432/api/maps/search-places \
+    -H "Content-Type: application/json" \
+    -d '{"query": "test"}' &
+done
+wait
+```
+
+Expected: After 100 requests, you should get a `429 Too Many Requests` error with a `Retry-After` header.
+
+## Troubleshooting Failed Tests
+
+### Backend Health Check Fails
+
+```bash
+# Check backend logs
+make logs-backend
+
+# Common issues:
+# 1. Google Maps API key not set
+# 2. Port 8432 already in use
+# 3. Backend container not running
+```
+
+### API Returns Errors
+
+```bash
+# Check for these common issues:
+
+# 1. Google Maps API key invalid
+echo $GOOGLE_MAPS_API_KEY
+
+# 2. Required APIs not enabled in Google Cloud Console
+# Enable: Places API, Directions API, Maps Embed API
+
+# 3. Billing not enabled (if required)
+```
+
+### LLM Doesn't Call Functions
+
+
+1. **Verify function is enabled in Open WebUI**
+   - Go to Workspace → Functions
+   - Check the toggle is ON
+   - Verify it's enabled for your model
+
+2. **Check you're using a compatible model**
+   ```bash
+   docker exec ollama ollama list
+   # Should show llama3.2, mistral, or mixtral
+   ```
+
+3. **Test backend connectivity from Open WebUI**
+   - Check backend logs for incoming requests
+   - Verify BACKEND_URL in the function code
+
+## Performance Testing
+
+### Response Time Test
+
+```bash
+time curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{"query": "pizza"}'
+```
+
+Expected: Response time < 2 seconds for most queries.
+
+### Load Test (Optional)
+
+```bash
+# Install apache bench if needed
+# sudo apt-get install apache2-utils
+
+ab -n 100 -c 10 -p test.json -T application/json \
+  http://localhost:8432/api/maps/search-places
+```
+
+Expected: Backend should handle concurrent requests without crashing.
+
+## Next Steps
+
+If all tests pass:
+
+1. [Learn About the Architecture](/docs/architecture/overview)
+2. [Explore the API Reference](/docs/api/overview)
+3. [Read Deployment Guide](/docs/deployment/docker)
+
+If tests fail, check the [Troubleshooting Guide](/docs/guides/troubleshooting).

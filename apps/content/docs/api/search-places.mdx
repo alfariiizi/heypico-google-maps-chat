@@ -1,0 +1,175 @@
+---
+title: Search Places
+description: Search for places using text queries
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Search Places
+
+Search for places using natural language text queries.
+
+## Endpoint
+
+```
+POST /api/maps/search-places
+```
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `query` | string | Yes | Search query (e.g., "pizza in New York") |
+| `location` | string | No | Center point for search (e.g., "New York" or "40.7128,-74.0060") |
+| `radius` | number | No | Search radius in meters (max: 50000, default: 5000) |
+| `type` | string | No | Place type filter (e.g., "restaurant", "cafe") |
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Italian restaurants",
+    "location": "New York",
+    "radius": 2000
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+      "name": "Carbone",
+      "address": "181 Thompson St, New York, NY 10012",
+      "location": {
+        "lat": 40.7265,
+        "lng": -74.0032
+      },
+      "rating": 4.6,
+      "userRatingsTotal": 1250,
+      "types": ["restaurant", "food", "point_of_interest"],
+      "businessStatus": "OPERATIONAL",
+      "priceLevel": 4,
+      "photoUrl": "https://maps.googleapis.com/maps/api/place/photo?...",
+      "googleMapsUrl": "https://www.google.com/maps/place/?q=place_id:...",
+      "embedMapUrl": "https://www.google.com/maps/embed/v1/place?..."
+    }
+  ]
+}
+```
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `placeId` | string | Unique Google Place ID |
+| `name` | string | Place name |
+| `address` | string | Formatted address |
+| `location.lat` | number | Latitude |
+| `location.lng` | number | Longitude |
+| `rating` | number | Average rating (0-5) |
+| `userRatingsTotal` | number | Number of ratings |
+| `types` | string[] | Place type categories |
+| `businessStatus` | string | Business operational status |
+| `priceLevel` | number | Price level (0-4, where 4 is most expensive) |
+| `photoUrl` | string | URL to place photo |
+| `googleMapsUrl` | string | Direct Google Maps link |
+| `embedMapUrl` | string | Embeddable map URL |
+
+## Place Types
+
+Common place types you can filter by:
+
+- `restaurant` - Restaurants
+- `cafe` - Coffee shops and cafes
+- `bar` - Bars and pubs
+- `hotel` - Hotels
+- `store` - Retail stores
+- `museum` - Museums
+- `park` - Parks
+- `gym` - Gyms and fitness centers
+- `hospital` - Medical facilities
+- `school` - Educational institutions
+
+[Full list of place types](https://developers.google.com/maps/documentation/places/web-service/supported_types)
+
+## Usage Examples
+
+### Basic Search
+
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{"query": "coffee shops"}'
+```
+
+### Search with Location
+
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "sushi restaurants",
+    "location": "San Francisco",
+    "radius": 3000
+  }'
+```
+
+### Search with Type Filter
+
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "best rated",
+    "location": "Seattle",
+    "type": "restaurant",
+    "radius": 5000
+  }'
+```
+
+## Error Responses
+
+### Invalid Query
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Query is required",
+    "statusCode": 400
+  }
+}
+```
+
+### Google Maps API Error
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "GOOGLE_MAPS_ERROR",
+    "message": "Google Maps API error: OVER_QUERY_LIMIT",
+    "statusCode": 500
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+  - The `radius` parameter defines search area from the location center
+  - Results are ordered by prominence by default
+  - Maximum 20 results returned per request
+  - Use `placeId` to get detailed information via Place Details endpoint
+</Callout>
+
+<Callout type="warn">
+  Large radius values (>50000m) may return broader, less relevant results
+</Callout>

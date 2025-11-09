@@ -1,0 +1,357 @@
+---
+title: Error Handling
+description: Understanding API errors and how to handle them
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Error Handling
+
+Learn how to handle errors from the HeyPico Maps API.
+
+## Error Response Format
+
+All errors follow a consistent structure:
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "statusCode": 400
+  }
+}
+```
+
+## HTTP Status Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 200 | OK | Request successful |
+| 400 | Bad Request | Invalid input/validation error |
+| 401 | Unauthorized | Missing or invalid API key |
+| 404 | Not Found | Endpoint doesn't exist |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Server or Google Maps API error |
+
+## Common Error Codes
+
+### VALIDATION_ERROR (400)
+
+Invalid request body or parameters.
+
+**Example:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Query is required",
+    "statusCode": 400
+  }
+}
+```
+
+**Causes:**
+- Missing required fields
+- Invalid data types
+- Values out of range
+- Malformed coordinates
+
+**Solution:**
+- Check request body matches schema
+- Verify all required fields are present
+- Validate data types and formats
+
+### UNAUTHORIZED (401)
+
+Missing or invalid API key (when authentication is enabled).
+
+**Example:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "UNAUTHORIZED",
+    "message": "Invalid API key",
+    "statusCode": 401
+  }
+}
+```
+
+**Causes:**
+- API key not provided
+- Wrong API key
+- API key in wrong format
+
+**Solution:**
+- Include valid API key in Authorization header
+- Verify API key matches backend configuration
+- Use format: `Bearer your-key`
+
+### NOT_FOUND (404)
+
+Endpoint doesn't exist.
+
+**Example:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "NOT_FOUND",
+    "message": "Endpoint not found",
+    "statusCode": 404
+  }
+}
+```
+
+**Causes:**
+- Wrong URL path
+- Typo in endpoint name
+- Using GET instead of POST
+
+**Solution:**
+- Verify endpoint URL
+- Check HTTP method (most endpoints use POST)
+- Review [API documentation](/docs/api/overview)
+
+### RATE_LIMIT_EXCEEDED (429)
+
+Too many requests in a short time.
+
+**Example:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests. Please try again later.",
+    "statusCode": 429
+  }
+}
+```
+
+**Response Headers:**
+```
+Retry-After: 60
+```
+
+**Causes:**
+- More than 100 requests per minute (default)
+- Aggressive retry logic
+- Multiple clients from same IP
+
+**Solution:**
+- Wait for time specified in `Retry-After` header
+- Implement exponential backoff
+- Reduce request frequency
+- Contact admin to increase limits
+
+### GOOGLE_MAPS_ERROR (500)
+
+Error from Google Maps API.
+
+**Example:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "GOOGLE_MAPS_ERROR",
+    "message": "Google Maps API error: OVER_QUERY_LIMIT",
+    "statusCode": 500
+  }
+}
+```
+
+**Common Google Maps Errors:**
+
+#### OVER_QUERY_LIMIT
+- Daily quota exceeded
+- **Solution**: Enable billing or wait for quota reset
+
+#### REQUEST_DENIED
+- API key invalid
+- Required APIs not enabled
+- **Solution**: Check Google Cloud Console configuration
+
+#### INVALID_REQUEST
+- Malformed request to Google Maps
+- **Solution**: Verify input parameters
+
+#### ZERO_RESULTS
+- No results found for query
+- **Solution**: Try different search terms or location
+
+#### NOT_FOUND
+- Place ID doesn't exist
+- **Solution**: Use fresh place IDs from recent searches
+
+## Error Handling Examples
+
+### JavaScript/TypeScript
+
+```typescript
+async function searchPlaces(query: string) {
+  try {
+    const response = await fetch('http://localhost:8432/api/maps/search-places', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({ query })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      // Handle error
+      switch (data.error.error) {
+        case 'VALIDATION_ERROR':
+          console.error('Invalid input:', data.error.message);
+          break;
+        case 'RATE_LIMIT_EXCEEDED':
+          const retryAfter = response.headers.get('Retry-After');
+          console.error(`Rate limited. Retry after ${retryAfter}s`);
+          break;
+        case 'GOOGLE_MAPS_ERROR':
+          console.error('Google Maps error:', data.error.message);
+          break;
+        default:
+          console.error('Unknown error:', data.error);
+      }
+      return null;
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error('Network error:', error);
+    return null;
+  }
+}
+```
+
+### Python
+
+```python
+import requests
+import time
+
+def search_places(query: str, max_retries: int = 3):
+    url = "http://localhost:8432/api/maps/search-places"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"
+    }
+    data = {"query": query}
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=data, headers=headers)
+            result = response.json()
+            
+            if not result.get("success"):
+                error = result.get("error", {})
+                error_code = error.get("error")
+                
+                if error_code == "RATE_LIMIT_EXCEEDED":
+                    retry_after = int(response.headers.get("Retry-After", 60))
+                    print(f"Rate limited. Waiting {retry_after}s...")
+                    time.sleep(retry_after)
+                    continue
+                
+                print(f"Error: {error.get('message')}")
+                return None
+            
+            return result.get("data")
+            
+        except requests.RequestException as e:
+            print(f"Network error: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+            
+    return None
+```
+
+## Retry Strategies
+
+### Exponential Backoff
+
+```typescript
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, i) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
+  }
+}
+```
+
+## Debugging Errors
+
+### Check Backend Logs
+
+```bash
+# View backend logs
+make logs-backend
+
+# Follow logs in real-time
+docker-compose logs -f backend
+```
+
+### Test with cURL
+
+```bash
+# Add -v for verbose output
+curl -v -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}'
+```
+
+### Validate Input
+
+```bash
+# Use jq to validate JSON
+echo '{"query": "test"}' | jq .
+```
+
+## Best Practices
+
+<Callout type="info" title="Error Handling Best Practices">
+  1. **Always check `success` field** before accessing data
+  2. **Handle rate limits gracefully** with retries
+  3. **Log errors** for debugging
+  4. **Show user-friendly messages** in UI
+  5. **Implement exponential backoff** for retries
+  6. **Monitor error rates** in production
+  7. **Have fallback behavior** for critical errors
+</Callout>
+
+## Getting Help
+
+If you encounter persistent errors:
+
+1. Check [Troubleshooting Guide](/docs/guides/troubleshooting)
+2. Review backend logs: `make logs-backend`
+3. Verify Google Cloud Console configuration
+4. Test with minimal examples from docs
+5. Check GitHub issues
+
+## Next Steps
+
+- [Learn about Rate Limiting](/docs/api/overview#rate-limiting)
+- [Troubleshooting Guide](/docs/guides/troubleshooting)
+- [API Overview](/docs/api/overview)

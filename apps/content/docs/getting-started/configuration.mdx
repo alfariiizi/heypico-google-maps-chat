@@ -1,0 +1,161 @@
+---
+title: Configuration
+description: Configure Google Maps API and environment variables
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Configuration
+
+Learn how to configure your Google Maps API key and environment variables.
+
+## Google Maps API Setup
+
+<Steps>
+  <Step>
+    ### Create a Google Cloud Project
+    
+    1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+    2. Click **Create Project**
+    3. Name your project (e.g., "HeyPico Maps")
+    4. Click **Create**
+  </Step>
+
+  <Step>
+    ### Enable Required APIs
+    
+    Navigate to **APIs & Services** → **Library** and enable:
+    
+    -  **Places API** (for search and place details)
+    -  **Directions API** (for route directions)
+    -  **Maps Embed API** (for embedded maps)
+    -  **Geocoding API** (recommended)
+  </Step>
+
+  <Step>
+    ### Create API Key
+    
+    1. Go to **APIs & Services** → **Credentials**
+    2. Click **Create Credentials** → **API Key**
+    3. Copy your API key
+    4. Click **Edit API Key** to add restrictions
+  </Step>
+
+  <Step>
+    ### Secure Your API Key (Recommended)
+    
+    #### Application Restrictions:
+    - Select **IP addresses**
+    - Add your server's IP address
+    - Add `127.0.0.1` for local development
+    
+    #### API Restrictions:
+    - Select **Restrict key**
+    - Choose the APIs you enabled:
+      - Places API
+      - Directions API
+      - Maps Embed API
+      - Geocoding API
+  </Step>
+
+  <Step>
+    ### Enable Billing (If Required)
+    
+    Some Google Maps APIs require billing to be enabled:
+    
+    1. Go to **Billing** in Google Cloud Console
+    2. Link a billing account
+    3. Google provides $200/month free credit
+  </Step>
+</Steps>
+
+<Callout type="warn" title="Important">
+  Keep your API key secret! Never commit it to version control or expose it in client-side code.
+</Callout>
+
+## Environment Variables
+
+### Project Root `.env`
+
+Create a `.env` file in the project root for Docker Compose:
+
+```bash title=".env"
+# Google Maps API Key (required)
+GOOGLE_MAPS_API_KEY=your-actual-api-key-here
+
+# Open WebUI Configuration (optional)
+WEBUI_SECRET_KEY=change-this-to-random-string
+ENABLE_SIGNUP=true
+
+# Backend API Key (optional - for authentication)
+API_KEY=your-backend-api-key
+
+# Rate Limiting (optional)
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+### Backend `.env`
+
+Create `backend/.env` for manual backend setup:
+
+```bash title="backend/.env"
+# Server Configuration
+PORT=8432
+NODE_ENV=development
+
+# Google Maps API Key (required)
+GOOGLE_MAPS_API_KEY=your-actual-api-key-here
+
+# Authentication (optional)
+API_KEY=optional-your-api-key-for-auth
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+## Configuration Options
+
+### Backend API Configuration
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `8432` | Backend server port |
+| `NODE_ENV` | No | `development` | Environment mode |
+| `GOOGLE_MAPS_API_KEY` | **Yes** | - | Your Google Maps API key |
+| `API_KEY` | No | - | Enable API authentication |
+| `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate limit window (ms) |
+| `RATE_LIMIT_MAX_REQUESTS` | No | `100` | Max requests per window |
+
+## Testing Your Configuration
+
+### Test Google Maps API Key
+
+```bash
+# Replace YOUR_API_KEY with your actual key
+curl "https://maps.googleapis.com/maps/api/place/textsearch/json?query=coffee&key=YOUR_API_KEY"
+```
+
+Expected response should include places data, not an error.
+
+### Test Backend Configuration
+
+```bash
+# Health check (no API key needed)
+curl http://localhost:8432/api/maps/health
+
+# Search places (uses Google Maps API key)
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{"query": "pizza in New York"}'
+```
+
+## Next Steps
+
+Now that you've configured everything:
+
+1. [Setup Open WebUI Functions](/docs/getting-started/setup)
+2. [Test Your Installation](/docs/getting-started/testing)
+3. [Learn About the Architecture](/docs/architecture/overview)

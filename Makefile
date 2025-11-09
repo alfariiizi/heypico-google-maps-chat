@@ -10,7 +10,7 @@ start: ## Start all services (Ollama, Open WebUI, Backend)
 	@docker-compose up -d
 	@echo ""
 	@echo "✅ Services started!"
-	@echo "   - Open WebUI: http://localhost:3000"
+	@echo "   - Open WebUI: http://localhost:3210"
 	@echo "   - Backend API: http://localhost:8432"
 	@echo "   - Ollama: http://localhost:11434"
 	@echo ""

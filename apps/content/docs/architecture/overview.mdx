@@ -1,0 +1,319 @@
+---
+title: Architecture Overview
+description: Understanding the system architecture
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Architecture Overview
+
+Learn how the different components work together to create an LLM-powered location service.
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         User Query                          │
+│         "Find Italian restaurants in New York"              │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Open WebUI (Port 3000)                   │
+│                    - Chat Interface                         │
+│                    - Function Management                    │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Ollama LLM (Port 11434)                    │
+│                  - llama3.2 / mistral                       │
+│                  - Function Call Detection                  │
+│                  - Natural Language Processing              │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       │ Function Call
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Backend API (Port 8432)                        │
+│              - Hono Framework                               │
+│              - TypeScript                                   │
+│              - Rate Limiting                                │
+│              - Authentication                               │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       │ API Request
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Google Maps API                            │
+│                  - Places API                               │
+│                  - Directions API                           │
+│                  - Geocoding API                            │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       │ Response
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   User Gets Results                         │
+│              - Place Information                            │
+│              - Interactive Maps                             │
+│              - Clickable Links                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Components
+
+### 1. Open WebUI
+**Purpose**: User interface for chatting with the LLM
+
+**Features**:
+- Web-based chat interface
+- Function management
+- Model selection
+- User authentication
+
+**Technology**: React, WebUI Framework
+**Port**: 3000
+
+### 2. Ollama
+**Purpose**: Local LLM runtime
+
+**Features**:
+- Runs LLMs locally
+- Supports multiple models
+- Function calling capability
+- No external API calls
+
+**Technology**: Go-based LLM runtime
+**Models**: llama3.2, mistral, mixtral
+**Port**: 11434
+
+### 3. Backend API
+**Purpose**: Secure bridge between LLM and Google Maps
+
+**Features**:
+- RESTful API endpoints
+- Request validation
+- Rate limiting
+- Optional authentication
+- Error handling
+
+**Technology**: Hono, TypeScript, Zod
+**Port**: 8432
+
+### 4. Google Maps APIs
+**Purpose**: Location data and mapping services
+
+**Features**:
+- Place search
+- Nearby search
+- Place details
+- Directions
+- Geocoding
+
+**Technology**: Google Cloud Platform
+
+## Request Flow
+
+### Example: "Find coffee shops in Seattle"
+
+<Steps>
+  <Step>
+    ### User Input
+    User types query in Open WebUI chat interface
+  </Step>
+
+  <Step>
+    ### LLM Processing
+    - Ollama receives the message
+    - Detects location-related intent
+    - Decides to call `search_places` function
+  </Step>
+
+  <Step>
+    ### Function Call
+    - LLM extracts parameters: `query: "coffee shops", location: "Seattle"`
+    - Calls backend API with these parameters
+  </Step>
+
+  <Step>
+    ### Backend Processing
+    - Validates request with Zod schema
+    - Checks rate limits
+    - Calls Google Maps Places API
+    - Formats response
+  </Step>
+
+  <Step>
+    ### Google Maps
+    - Searches for coffee shops in Seattle
+    - Returns place data (names, locations, ratings)
+  </Step>
+
+  <Step>
+    ### Response Flow
+    - Backend formats data with Google Maps links
+    - Returns JSON to LLM
+    - LLM formats results in natural language
+    - User sees formatted response with clickable links
+  </Step>
+</Steps>
+
+## Data Flow
+
+```
+User Query (Text)
+    ↓
+LLM Analysis (Intent Detection)
+    ↓
+Function Parameters (JSON)
+    {
+      "query": "coffee shops",
+      "location": "Seattle",
+      "radius": 5000
+    }
+    ↓
+Backend Validation (Zod)
+    ↓
+Google Maps Request
+    ↓
+Place Data (JSON)
+    [
+      {
+        "name": "Starbucks Reserve",
+        "rating": 4.5,
+        ...
+      }
+    ]
+    ↓
+LLM Formatting
+    ↓
+User Response (Natural Language + Links)
+```
+
+## Security Layers
+
+### 1. API Key Protection
+- Google Maps API key never exposed to client
+- Backend acts as secure proxy
+- Only backend has access to sensitive credentials
+
+### 2. Rate Limiting
+- IP-based request throttling
+- Prevents API quota exhaustion
+- Configurable limits
+
+### 3. Input Validation
+- Zod schemas validate all inputs
+- Type safety with TypeScript
+- Prevents malformed requests
+
+### 4. Optional Authentication
+- Backend API key protection
+- Bearer token authentication
+- Query parameter alternative
+
+### 5. CORS Protection
+- Restricted origins
+- Only allows Open WebUI connections
+- Prevents unauthorized access
+
+## Scalability Considerations
+
+### Horizontal Scaling
+- **Backend**: Stateless design allows multiple instances
+- **Ollama**: Can run on separate servers
+- **Open WebUI**: Can be load balanced
+
+### Vertical Scaling
+- **Ollama**: More RAM = larger models
+- **Backend**: More CPU = higher throughput
+- **Database**: Can add PostgreSQL for user data
+
+### Caching Strategy
+- **Backend**: Can add Redis for response caching
+- **Rate Limiting**: Currently in-memory, can use Redis
+- **LLM**: Model caching by Ollama
+
+## Technology Choices
+
+### Why Hono?
+- Lightweight and fast
+- Great TypeScript support
+- Minimal overhead
+- Easy to deploy
+
+### Why Ollama?
+- Privacy (runs locally)
+- No API costs
+- Full control
+- Multiple model support
+
+### Why TypeScript?
+- Type safety
+- Better IDE support
+- Catches errors early
+- Self-documenting code
+
+### Why Zod?
+- Runtime validation
+- Type inference
+- Clear error messages
+- TypeScript integration
+
+## Docker Architecture
+
+```
+docker-compose.yml
+│
+├── ollama (Service)
+│   ├── Image: ollama/ollama:latest
+│   ├── Port: 11434
+│   └── Volume: ollama_data
+│
+├── open-webui (Service)
+│   ├── Image: ghcr.io/open-webui/open-webui:main
+│   ├── Port: 3000
+│   ├── Depends: ollama, backend
+│   └── Volume: open_webui_data
+│
+└── backend (Service)
+    ├── Build: ./backend/Dockerfile
+    ├── Port: 8432
+    └── Environment: .env variables
+```
+
+## Network Communication
+
+All services communicate via Docker network:
+
+```
+open-webui → ollama:11434 (LLM communication)
+open-webui → backend:8432 (API calls)
+backend → Google Maps API (HTTPS)
+```
+
+<Callout type="info">
+  The backend can also run outside Docker. In that case, Open WebUI functions should use `http://host.docker.internal:8432` to reach the host machine.
+</Callout>
+
+## Performance Characteristics
+
+| Component | Latency | Bottleneck |
+|-----------|---------|------------|
+| Open WebUI | Less than 100ms | Network |
+| Ollama (LLM) | 1-5s | GPU/CPU |
+| Backend API | Less than 200ms | Google Maps API |
+| Google Maps | 100-500ms | Network + API |
+| **Total** | **2-6s** | LLM processing |
+
+<Callout type="warn">
+  LLM inference is the slowest part. Using larger models increases latency but may improve accuracy.
+</Callout>
+
+## Next Steps
+
+- [Backend Architecture](/docs/architecture/backend)
+- [LLM Integration Details](/docs/architecture/llm-integration)
+- [Security Design](/docs/architecture/security)

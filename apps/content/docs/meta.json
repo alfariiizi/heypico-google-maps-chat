@@ -1,0 +1,16 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "getting-started",
+    "---Core Concepts---",
+    "architecture",
+    "---API Reference---",
+    "api",
+    "---Guides---",
+    "guides",
+    "---Deployment---",
+    "deployment"
+  ]
+}

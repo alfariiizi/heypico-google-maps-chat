@@ -198,7 +198,7 @@ curl http://localhost:8432/api/maps/search-places?api_key=your-api-key
 ### CORS Protection
 
 Configured for Open WebUI origins:
-- `http://localhost:3000`
+- `http://localhost:3210`
 - `http://localhost:8080`
 
 ## 📊 Response Format
@@ -301,7 +301,7 @@ cat .env
 
 1. Ensure backend is running: `curl http://localhost:8432/api/maps/health`
 2. Check CORS origins in `src/index.ts`
-3. Verify Open WebUI is on `http://localhost:3000` or `http://localhost:8080`
+3. Verify Open WebUI is on `http://localhost:3210` or `http://localhost:8080`
 
 ## 📦 Build for Production
 

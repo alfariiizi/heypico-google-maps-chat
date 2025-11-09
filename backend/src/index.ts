@@ -22,7 +22,7 @@ app.use('*', prettyJSON()); // Pretty JSON responses
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:3000', 'http://localhost:8080'], // Open WebUI origins
+    origin: ['http://localhost:3210', 'http://localhost:8080'], // Open WebUI origins
     credentials: true,
   })
 );

@@ -1,0 +1,282 @@
+---
+title: Directions
+description: Get route directions between two locations
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Directions
+
+Get turn-by-turn directions between two locations with distance and duration estimates.
+
+## Endpoint
+
+```
+POST /api/maps/directions
+```
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `origin` | string | Yes | Starting location (address or coordinates) |
+| `destination` | string | Yes | Ending location (address or coordinates) |
+| `mode` | string | No | Travel mode: "driving", "walking", "bicycling", "transit" (default: "driving") |
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:8432/api/maps/directions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "Times Square, New York",
+    "destination": "Central Park, New York",
+    "mode": "walking"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "summary": "W 58th St",
+    "distance": {
+      "text": "1.2 km",
+      "value": 1234
+    },
+    "duration": {
+      "text": "15 mins",
+      "value": 900
+    },
+    "startAddress": "Times Square, Manhattan, NY 10036, USA",
+    "endAddress": "Central Park, New York, NY, USA",
+    "steps": [
+      {
+        "instruction": "Head north on 7th Ave toward W 43rd St",
+        "distance": "0.2 km",
+        "duration": "2 mins"
+      },
+      {
+        "instruction": "Turn right onto W 58th St",
+        "distance": "0.5 km",
+        "duration": "6 mins"
+      }
+    ],
+    "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&origin=...",
+    "embedMapUrl": "https://www.google.com/maps/embed/v1/directions?..."
+  }
+}
+```
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `summary` | string | Route summary (main road name) |
+| `distance.text` | string | Human-readable distance |
+| `distance.value` | number | Distance in meters |
+| `duration.text` | string | Human-readable duration |
+| `duration.value` | number | Duration in seconds |
+| `startAddress` | string | Full origin address |
+| `endAddress` | string | Full destination address |
+| `steps` | array | Turn-by-turn directions |
+| `steps[].instruction` | string | Step instruction (HTML stripped) |
+| `steps[].distance` | string | Step distance |
+| `steps[].duration` | string | Step duration |
+| `googleMapsUrl` | string | Interactive directions link |
+| `embedMapUrl` | string | Embeddable map with route |
+
+## Travel Modes
+
+### Driving (default)
+```json
+{
+  "origin": "San Francisco Airport",
+  "destination": "Golden Gate Bridge",
+  "mode": "driving"
+}
+```
+
+### Walking
+```json
+{
+  "origin": "Times Square",
+  "destination": "Empire State Building",
+  "mode": "walking"
+}
+```
+
+### Bicycling
+```json
+{
+  "origin": "Brooklyn Bridge",
+  "destination": "Central Park",
+  "mode": "bicycling"
+}
+```
+
+### Transit (Public Transportation)
+```json
+{
+  "origin": "Penn Station, New York",
+  "destination": "JFK Airport",
+  "mode": "transit"
+}
+```
+
+## Location Formats
+
+You can specify locations in multiple formats:
+
+### Address
+```json
+{
+  "origin": "1600 Amphitheatre Parkway, Mountain View, CA",
+  "destination": "1 Infinite Loop, Cupertino, CA"
+}
+```
+
+### Landmark
+```json
+{
+  "origin": "Statue of Liberty",
+  "destination": "Empire State Building"
+}
+```
+
+### Coordinates
+```json
+{
+  "origin": "40.7128,-74.0060",
+  "destination": "40.7589,-73.9851"
+}
+```
+
+### Place ID
+```json
+{
+  "origin": "place_id:ChIJN1t_tDeuEmsRUsoyG83frY4",
+  "destination": "Central Park, New York"
+}
+```
+
+## Usage Examples
+
+### Walking Directions
+
+```bash
+curl -X POST http://localhost:8432/api/maps/directions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "Times Square, New York",
+    "destination": "Central Park, New York",
+    "mode": "walking"
+  }'
+```
+
+### Driving with Coordinates
+
+```bash
+curl -X POST http://localhost:8432/api/maps/directions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "37.7749,-122.4194",
+    "destination": "37.8199,-122.4783",
+    "mode": "driving"
+  }'
+```
+
+### Transit Directions
+
+```bash
+curl -X POST http://localhost:8432/api/maps/directions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "Grand Central Terminal",
+    "destination": "Brooklyn Museum",
+    "mode": "transit"
+  }'
+```
+
+## Understanding Duration
+
+Duration estimates vary by mode:
+
+- **Driving**: Based on current traffic conditions
+- **Walking**: Average walking speed (~5 km/h)
+- **Bicycling**: Average cycling speed (~16 km/h)
+- **Transit**: Includes wait times and transfers
+
+<Callout type="info">
+  Duration values are estimates. Actual travel time may vary based on traffic, weather, and other factors.
+</Callout>
+
+## Turn-by-Turn Instructions
+
+Instructions are HTML-free and ready to display:
+
+```json
+{
+  "instruction": "Head north on 7th Ave toward W 43rd St",
+  "distance": "0.2 km",
+  "duration": "2 mins"
+}
+```
+
+Original Google Maps instructions may include HTML like `<b>`, `<div>`. These are automatically stripped.
+
+## Error Responses
+
+### Missing Required Fields
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Origin and destination are required",
+    "statusCode": 400
+  }
+}
+```
+
+### Invalid Mode
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Mode must be one of: driving, walking, bicycling, transit",
+    "statusCode": 400
+  }
+}
+```
+
+### No Route Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "GOOGLE_MAPS_ERROR",
+    "message": "Google Maps API error: ZERO_RESULTS",
+    "statusCode": 500
+  }
+}
+```
+
+## Notes
+
+<Callout type="warn">
+  - Some routes may not be available for certain modes (e.g., no bicycling paths)
+  - Transit directions depend on public transportation schedules
+  - Very long distances may not support walking or bicycling
+  - International routes may have limited support
+</Callout>
+
+<Callout type="info">
+  The `googleMapsUrl` opens an interactive map in the user's browser, while `embedMapUrl` can be used in iframes for embedded maps.
+</Callout>

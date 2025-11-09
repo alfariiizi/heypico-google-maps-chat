@@ -1,0 +1,166 @@
+---
+title: Nearby Places
+description: Find places near a specific location
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Nearby Places
+
+Find places near a specific geographic location using coordinates.
+
+## Endpoint
+
+```
+POST /api/maps/nearby-places
+```
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `location` | string | Yes | Coordinates as "lat,lng" (e.g., "40.7128,-74.0060") |
+| `radius` | number | Yes | Search radius in meters (max: 50000) |
+| `type` | string | No | Place type filter (e.g., "restaurant", "cafe") |
+| `keyword` | string | No | Keyword to filter results (e.g., "pizza", "vegan") |
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:8432/api/maps/nearby-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "40.7589,-73.9851",
+    "radius": 1500,
+    "type": "restaurant",
+    "keyword": "pizza"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "placeId": "ChIJxeyK9Z3bQIYRbJiT-Ayzvhw",
+      "name": "Joe's Pizza",
+      "address": "7 Carmine St, New York, NY 10014",
+      "location": {
+        "lat": 40.7304,
+        "lng": -74.0028
+      },
+      "rating": 4.5,
+      "userRatingsTotal": 3420,
+      "types": ["restaurant", "food", "point_of_interest"],
+      "businessStatus": "OPERATIONAL",
+      "priceLevel": 1,
+      "photoUrl": "https://maps.googleapis.com/maps/api/place/photo?...",
+      "googleMapsUrl": "https://www.google.com/maps/place/?q=place_id:...",
+      "embedMapUrl": "https://www.google.com/maps/embed/v1/place?..."
+    }
+  ]
+}
+```
+
+## Response Fields
+
+Same as [Search Places](/docs/api/search-places#response-fields) endpoint.
+
+## Usage Examples
+
+### Find Restaurants Nearby
+
+```bash
+curl -X POST http://localhost:8432/api/maps/nearby-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "37.7749,-122.4194",
+    "radius": 2000,
+    "type": "restaurant"
+  }'
+```
+
+### Find Coffee Shops with Keyword
+
+```bash
+curl -X POST http://localhost:8432/api/maps/nearby-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "40.7589,-73.9851",
+    "radius": 1000,
+    "type": "cafe",
+    "keyword": "organic"
+  }'
+```
+
+### Find Any Place Type
+
+```bash
+curl -X POST http://localhost:8432/api/maps/nearby-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "34.0522,-118.2437",
+    "radius": 3000,
+    "keyword": "vegan"
+  }'
+```
+
+## Getting Coordinates
+
+You can get coordinates from:
+
+1. **Google Maps**: Right-click on a location → Click coordinates to copy
+2. **Address**: Use the search-places endpoint first, then use the returned coordinates
+3. **User Location**: From browser geolocation API in your frontend
+
+## Difference from Search Places
+
+| Feature | Search Places | Nearby Places |
+|---------|---------------|---------------|
+| Input | Text query | Coordinates |
+| Location | Optional | Required |
+| Use Case | "Find X near Y" | "Find X at lat,lng" |
+| Precision | Area-based | Coordinate-based |
+
+<Callout type="info">
+  Use **Nearby Places** when you have exact coordinates. Use **Search Places** for text-based queries.
+</Callout>
+
+## Error Responses
+
+### Invalid Coordinates
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Location must be in format 'lat,lng'",
+    "statusCode": 400
+  }
+}
+```
+
+### Invalid Radius
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Radius must be between 1 and 50000 meters",
+    "statusCode": 400
+  }
+}
+```
+
+## Notes
+
+<Callout type="warn">
+  - Coordinates must be in decimal format (e.g., "40.7128,-74.0060")
+  - Radius is required and must be 1-50000 meters
+  - Results ordered by distance from the center point
+  - Maximum 20 results returned per request
+</Callout>

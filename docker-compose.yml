@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Ollama - Local LLM Runtime
@@ -16,7 +16,7 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
     ports:
-      - "3000:8080"
+      - "3210:8080"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-your-secret-key-change-this}
@@ -45,7 +45,14 @@ services:
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8432/api/maps/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:8432/api/maps/health', (r) =>
+          {process.exit(r.statusCode === 200 ? 0 : 1)})",
+        ]
       interval: 30s
       timeout: 3s
       retries: 3

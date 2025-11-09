@@ -1,0 +1,198 @@
+---
+title: Place Details
+description: Get detailed information about a specific place
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Place Details
+
+Get comprehensive information about a specific place including reviews, hours, and contact information.
+
+## Endpoint
+
+```
+POST /api/maps/place-details
+```
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `placeId` | string | Yes | Google Place ID (from search results) |
+
+## Example Request
+
+```bash
+curl -X POST http://localhost:8432/api/maps/place-details \
+  -H "Content-Type: application/json" \
+  -d '{
+    "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
+  }'
+```
+
+## Example Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+    "name": "Carbone",
+    "address": "181 Thompson St, New York, NY 10012, USA",
+    "location": {
+      "lat": 40.7265,
+      "lng": -74.0032
+    },
+    "rating": 4.6,
+    "userRatingsTotal": 1250,
+    "types": ["restaurant", "food", "point_of_interest"],
+    "businessStatus": "OPERATIONAL",
+    "priceLevel": 4,
+    "phoneNumber": "+1 212-254-3000",
+    "website": "https://carbonenewyork.com",
+    "openingHours": {
+      "openNow": true,
+      "weekdayText": [
+        "Monday: Closed",
+        "Tuesday: 5:30 – 11:00 PM",
+        "Wednesday: 5:30 – 11:00 PM",
+        "Thursday: 5:30 – 11:00 PM",
+        "Friday: 5:30 – 11:00 PM",
+        "Saturday: 5:30 – 11:00 PM",
+        "Sunday: 5:30 – 10:00 PM"
+      ]
+    },
+    "reviews": [
+      {
+        "authorName": "John Doe",
+        "rating": 5,
+        "text": "Amazing Italian food! The pasta was incredible...",
+        "time": 1704067200
+      }
+    ],
+    "photoUrl": "https://maps.googleapis.com/maps/api/place/photo?...",
+    "googleMapsUrl": "https://www.google.com/maps/place/?q=place_id:...",
+    "embedMapUrl": "https://www.google.com/maps/embed/v1/place?..."
+  }
+}
+```
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `placeId` | string | Unique Google Place ID |
+| `name` | string | Place name |
+| `address` | string | Full formatted address |
+| `location` | object | Coordinates (lat, lng) |
+| `rating` | number | Average rating (0-5) |
+| `userRatingsTotal` | number | Total number of ratings |
+| `types` | string[] | Place categories |
+| `businessStatus` | string | Operational status |
+| `priceLevel` | number | Price level (0-4) |
+| `phoneNumber` | string | Phone number (formatted) |
+| `website` | string | Official website URL |
+| `openingHours` | object | Hours information |
+| `openingHours.openNow` | boolean | Currently open status |
+| `openingHours.weekdayText` | string[] | Weekly schedule |
+| `reviews` | array | Recent reviews (max 5) |
+| `reviews[].authorName` | string | Reviewer name |
+| `reviews[].rating` | number | Review rating (1-5) |
+| `reviews[].text` | string | Review text |
+| `reviews[].time` | number | Unix timestamp |
+| `photoUrl` | string | Main place photo |
+| `googleMapsUrl` | string | Direct Google Maps link |
+| `embedMapUrl` | string | Embeddable map URL |
+
+## Usage Examples
+
+### Get Restaurant Details
+
+```bash
+curl -X POST http://localhost:8432/api/maps/place-details \
+  -H "Content-Type: application/json" \
+  -d '{
+    "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
+  }'
+```
+
+### Typical Workflow
+
+```bash
+# Step 1: Search for places
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Italian restaurants in NYC"}'
+
+# Step 2: Get placeId from results
+# placeId: "ChIJN1t_tDeuEmsRUsoyG83frY4"
+
+# Step 3: Get detailed information
+curl -X POST http://localhost:8432/api/maps/place-details \
+  -H "Content-Type: application/json" \
+  -d '{"placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"}'
+```
+
+## Opening Hours Format
+
+The `weekdayText` array contains human-readable hours:
+
+```json
+[
+  "Monday: 9:00 AM – 5:00 PM",
+  "Tuesday: 9:00 AM – 5:00 PM",
+  "Wednesday: 9:00 AM – 5:00 PM",
+  "Thursday: 9:00 AM – 5:00 PM",
+  "Friday: 9:00 AM – 5:00 PM",
+  "Saturday: 10:00 AM – 4:00 PM",
+  "Sunday: Closed"
+]
+```
+
+## Reviews
+
+- Returns up to 5 most recent/relevant reviews
+- Reviews are sorted by Google's relevance algorithm
+- `time` field is Unix timestamp (seconds since epoch)
+
+## Error Responses
+
+### Invalid Place ID
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "VALIDATION_ERROR",
+    "message": "Place ID is required",
+    "statusCode": 400
+  }
+}
+```
+
+### Place Not Found
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "GOOGLE_MAPS_ERROR",
+    "message": "Google Maps API error: NOT_FOUND",
+    "statusCode": 500
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+  - Place IDs are stable and can be stored for future lookups
+  - Some fields (website, phone, hours) may be missing for certain places
+  - Reviews are limited to 5 to keep response size manageable
+  - Use this endpoint to get full details after initial search
+</Callout>
+
+<Callout type="warn">
+  Place IDs can change over time, though this is rare. Always use fresh IDs from recent searches for best results.
+</Callout>

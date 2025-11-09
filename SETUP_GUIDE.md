@@ -107,7 +107,7 @@ If you get results with place names and addresses, **YOU'RE GOOD TO GO!** ✅
 
 #### Option A: Using Python Functions (Recommended)
 
-1. Open your browser and go to Open WebUI: `http://localhost:3000`
+1. Open your browser and go to Open WebUI: `http://localhost:3210`
 
 2. Login to your account
 

@@ -59,13 +59,13 @@ docker exec -it ollama ollama pull mistral
 
 ### 4. Access Services
 
-- **Open WebUI**: http://localhost:3000
+- **Open WebUI**: http://localhost:3210
 - **Backend API**: http://localhost:8432
 - **Ollama**: http://localhost:11434
 
 ### 5. Add Function to Open WebUI
 
-1. Go to http://localhost:3000
+1. Go to http://localhost:3210
 2. Navigate to **Workspace** → **Functions**
 3. Copy content from `backend/open-webui-functions/google_maps_tool.py`
 4. Create new function, paste, and save

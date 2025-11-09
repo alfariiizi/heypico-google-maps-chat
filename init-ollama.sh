@@ -22,4 +22,4 @@ else
   echo "✅ llama3.2 model installed successfully!"
 fi
 
-echo "🎉 Setup complete! You can now use Open WebUI at http://localhost:3000"
+echo "🎉 Setup complete! You can now use Open WebUI at http://localhost:3210"

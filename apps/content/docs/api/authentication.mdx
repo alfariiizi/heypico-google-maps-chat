@@ -1,0 +1,262 @@
+---
+title: Authentication
+description: Secure your API with authentication
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Authentication
+
+Learn how to secure your backend API with API key authentication.
+
+## Overview
+
+Authentication is **optional** and disabled by default. When enabled, all API endpoints (except health check) require a valid API key.
+
+<Callout type="info">
+  The health check endpoint (`/api/maps/health`) never requires authentication.
+</Callout>
+
+## Enabling Authentication
+
+Set the `API_KEY` environment variable:
+
+### Docker Compose
+
+Edit `.env` in the project root:
+
+```bash
+API_KEY=your-secure-api-key-here
+```
+
+Then restart services:
+
+```bash
+make restart
+```
+
+### Manual Backend
+
+Edit `backend/.env`:
+
+```bash
+API_KEY=your-secure-api-key-here
+```
+
+Then restart the backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+## Using API Keys
+
+Once enabled, include your API key in every request using one of these methods:
+
+### Method 1: Authorization Header (Recommended)
+
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "coffee shops"}'
+```
+
+### Method 2: Query Parameter
+
+```bash
+curl -X POST "http://localhost:8432/api/maps/search-places?api_key=your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "coffee shops"}'
+```
+
+## Generating Secure API Keys
+
+Generate a cryptographically secure API key:
+
+### Using OpenSSL
+
+```bash
+openssl rand -hex 32
+```
+
+### Using Node.js
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### Using Python
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+<Callout type="warn">
+  Never use simple passwords like "password123" or "apikey". Always use randomly generated keys.
+</Callout>
+
+## Authentication Flow
+
+```
+1. Client makes request with API key
+   ↓
+2. Middleware checks API key
+   ↓
+3a. Valid key → Continue to endpoint
+3b. Invalid/missing key → Return 401 Unauthorized
+```
+
+## Error Responses
+
+### Missing API Key
+
+**Request:**
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{"query": "coffee"}'
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "UNAUTHORIZED",
+    "message": "API key is required",
+    "statusCode": 401
+  }
+}
+```
+
+### Invalid API Key
+
+**Request:**
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Authorization: Bearer wrong-key" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "coffee"}'
+```
+
+**Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "error": "UNAUTHORIZED",
+    "message": "Invalid API key",
+    "statusCode": 401
+  }
+}
+```
+
+## Open WebUI Integration
+
+When authentication is enabled, update the Open WebUI function code:
+
+```python
+# In backend/open-webui-functions/maps_functions.py
+
+BACKEND_URL = "http://host.docker.internal:8432"
+API_KEY = "your-api-key-here"  # Add this
+
+def call_backend(endpoint, data):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"  # Add this
+    }
+    response = requests.post(
+        f"{BACKEND_URL}{endpoint}",
+        json=data,
+        headers=headers
+    )
+    return response.json()
+```
+
+## Multiple API Keys
+
+Currently, the backend supports a single API key. For multiple keys, you can:
+
+### Option 1: Environment Variable List
+
+Modify `backend/src/middleware/auth.ts` to support multiple keys:
+
+```typescript
+const validKeys = env.API_KEY.split(',').map(k => k.trim());
+const isValid = validKeys.includes(apiKey);
+```
+
+Then set multiple keys:
+```bash
+API_KEY=key1,key2,key3
+```
+
+### Option 2: Database-backed Authentication
+
+For production, consider implementing:
+- User accounts
+- Token-based authentication (JWT)
+- OAuth 2.0
+- Rate limiting per user
+
+## Security Best Practices
+
+<Callout type="warn" title="Security Checklist">
+  -  Use HTTPS in production
+  -  Generate random, complex API keys (32+ characters)
+  -  Never commit API keys to version control
+  -  Rotate API keys regularly
+  -  Use environment variables for keys
+  -  Enable rate limiting (already configured)
+  -  Monitor API usage logs
+  -  Use Authorization header instead of query parameters
+</Callout>
+
+## Disabling Authentication
+
+To disable authentication:
+
+1. Remove or comment out `API_KEY` in `.env`:
+   ```bash
+   # API_KEY=your-key
+   ```
+
+2. Restart the backend:
+   ```bash
+   make restart
+   ```
+
+<Callout type="info">
+  With authentication disabled, anyone who can reach your backend can use your Google Maps API quota. Enable authentication in production!
+</Callout>
+
+## Testing Authentication
+
+```bash
+# Set your API key
+export API_KEY="your-api-key-here"
+
+# Test with valid key
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}'
+
+# Test with invalid key (should fail)
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Authorization: Bearer wrong-key" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test"}'
+
+# Test health check (should work without key)
+curl http://localhost:8432/api/maps/health
+```
+
+## Next Steps
+
+- [Learn about Error Handling](/docs/api/errors)
+- [Understand Rate Limiting](/docs/api/overview#rate-limiting)
+- [Deploy to Production](/docs/deployment/docker)

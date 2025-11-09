@@ -1,0 +1,12 @@
+{
+  "title": "API Reference",
+  "pages": [
+    "overview",
+    "search-places",
+    "nearby-places",
+    "place-details",
+    "directions",
+    "authentication",
+    "errors"
+  ]
+}

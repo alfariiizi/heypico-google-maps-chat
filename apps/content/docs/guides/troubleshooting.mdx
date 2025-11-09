@@ -1,0 +1,416 @@
+---
+title: Troubleshooting
+description: Common issues and solutions
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Troubleshooting Guide
+
+Solutions to common issues you might encounter.
+
+## Backend Issues
+
+### Backend Won't Start
+
+**Symptom**: Backend container fails to start or exits immediately
+
+**Solutions**:
+
+1. **Check Google Maps API key**
+   ```bash
+   # Verify API key is set
+   cat .env | grep GOOGLE_MAPS_API_KEY
+   ```
+
+2. **Check backend logs**
+   ```bash
+   make logs-backend
+   # or
+   docker-compose logs backend
+   ```
+
+3. **Verify port availability**
+   ```bash
+   # Check if port 8432 is in use
+   lsof -i :8432
+   # or
+   netstat -tuln | grep 8432
+   ```
+
+4. **Rebuild backend**
+   ```bash
+   make rebuild
+   ```
+
+### "GOOGLE_MAPS_API_KEY is required" Error
+
+**Solution**:
+```bash
+# Create .env file in project root
+echo "GOOGLE_MAPS_API_KEY=your-key-here" > .env
+
+# Restart services
+make restart
+```
+
+### Backend Returns 500 Errors
+
+**Check**:
+1. Google Maps API key is valid
+2. Required APIs are enabled in Google Cloud Console
+3. Billing is enabled (if required)
+
+```bash
+# Test API key directly
+curl "https://maps.googleapis.com/maps/api/place/textsearch/json?query=test&key=YOUR_KEY"
+```
+
+## Docker Issues
+
+### "Port already in use" Error
+
+**Solution**: Change ports in `docker-compose.yml`
+
+```yaml
+services:
+  open-webui:
+    ports:
+      - "3001:8080"  # Changed from 3000
+  backend:
+    ports:
+      - "8433:8432"  # Changed from 8432
+```
+
+### Docker Build Fails
+
+**Solutions**:
+
+1. **Clean Docker cache**
+   ```bash
+   docker system prune -a
+   make start
+   ```
+
+2. **Check Docker daemon**
+   ```bash
+   docker info
+   ```
+
+3. **Check disk space**
+   ```bash
+   df -h
+   ```
+
+### Containers Keep Restarting
+
+**Check logs**:
+```bash
+make logs
+# or specific service
+make logs-backend
+make logs-ollama
+```
+
+**Common causes**:
+- Missing environment variables
+- Port conflicts
+- Insufficient memory (need 8GB+ for Ollama)
+
+## Ollama Issues
+
+### Model Won't Download
+
+**Symptom**: `ollama pull llama3.2` fails or hangs
+
+**Solutions**:
+
+1. **Check internet connection**
+   ```bash
+   ping ollama.ai
+   ```
+
+2. **Check disk space** (models are 2-8GB)
+   ```bash
+   df -h
+   ```
+
+3. **Try smaller model first**
+   ```bash
+   docker exec ollama ollama pull phi
+   ```
+
+4. **Check Ollama logs**
+   ```bash
+   make logs-ollama
+   ```
+
+### Ollama Running Slow
+
+**Solutions**:
+
+1. **Check system resources**
+   ```bash
+   docker stats
+   ```
+
+2. **Use smaller model**
+   - llama3.2 (4.7GB) - faster
+   - mistral (4.1GB) - faster
+   - mixtral (26GB) - slower but more capable
+
+3. **Allocate more RAM** (edit docker-compose.yml)
+   ```yaml
+   ollama:
+     deploy:
+       resources:
+         limits:
+           memory: 8G
+   ```
+
+## Open WebUI Issues
+
+### Can't Access Open WebUI
+
+**Solutions**:
+
+1. **Check service is running**
+   ```bash
+   make status
+   ```
+
+2. **Verify port**
+   - Default: http://localhost:3210
+   - Check docker-compose.yml for port mapping
+
+3. **Check logs**
+   ```bash
+   make logs-openwebui
+   ```
+
+### Can't Create Account
+
+**Check `ENABLE_SIGNUP`** in .env:
+```bash
+ENABLE_SIGNUP=true
+```
+
+Then restart:
+```bash
+make restart
+```
+
+## LLM Function Issues
+
+### Functions Not Being Called
+
+**Solutions**:
+
+1. **Verify function is enabled**
+   - Go to Workspace → Functions
+   - Check toggle is ON
+   - Verify enabled for your model
+
+2. **Check model supports functions**
+   ```bash
+   # Use compatible models
+   docker exec ollama ollama pull llama3.2
+   docker exec ollama ollama pull mistral
+   ```
+
+3. **Check backend URL in function**
+   - Open function code in Open WebUI
+   - Verify `BACKEND_URL = "http://host.docker.internal:8432"`
+
+4. **Test backend directly**
+   ```bash
+   curl http://localhost:8432/api/maps/health
+   ```
+
+### "Connection refused" in Function Calls
+
+**If backend is in Docker**:
+```python
+BACKEND_URL = "http://backend:8432"
+```
+
+**If backend is on host**:
+```python
+BACKEND_URL = "http://host.docker.internal:8432"
+```
+
+**If backend is manual**:
+```python
+BACKEND_URL = "http://localhost:8432"
+```
+
+## Google Maps API Issues
+
+### "OVER_QUERY_LIMIT" Error
+
+**Solutions**:
+
+1. **Enable billing** in Google Cloud Console
+
+2. **Check quotas**
+   - Go to Google Cloud Console → APIs & Services → Quotas
+   - Places API: 200,000 requests/day free
+
+3. **Reduce usage**
+   - Adjust rate limiting
+   - Implement caching
+
+### "REQUEST_DENIED" Error
+
+**Solutions**:
+
+1. **Enable required APIs** in Google Cloud Console:
+   - Places API
+   - Directions API
+   - Maps Embed API
+   - Geocoding API
+
+2. **Check API key restrictions**
+   - Remove restrictions temporarily for testing
+   - Add correct IP addresses
+
+3. **Verify billing** is enabled
+
+### "INVALID_REQUEST" Error
+
+**Solutions**:
+
+1. **Check request format**
+   ```bash
+   # Test with simple request
+   curl -X POST http://localhost:8432/api/maps/search-places \
+     -H "Content-Type: application/json" \
+     -d '{"query": "coffee"}'
+   ```
+
+2. **Check backend logs** for details
+   ```bash
+   make logs-backend
+   ```
+
+## Rate Limiting Issues
+
+### Getting 429 Errors
+
+**Solutions**:
+
+1. **Wait for rate limit window** (default: 60 seconds)
+
+2. **Increase limits** in .env:
+   ```bash
+   RATE_LIMIT_WINDOW_MS=60000
+   RATE_LIMIT_MAX_REQUESTS=200  # Increased from 100
+   ```
+
+3. **Implement exponential backoff** in client code
+
+## Development Issues
+
+### Hot Reload Not Working
+
+**Solution**:
+```bash
+cd backend
+# Kill existing process
+pkill -f "tsx watch"
+# Restart
+npm run dev
+```
+
+### TypeScript Errors
+
+**Solution**:
+```bash
+cd backend
+# Check for errors
+npm run build
+
+# Fix common issues
+# 1. Missing .js extensions in imports
+# 2. Type mismatches
+# 3. Missing type definitions
+```
+
+### Changes Not Reflected
+
+**For Docker**:
+```bash
+make rebuild
+```
+
+**For Manual Backend**:
+```bash
+# Restart dev server
+cd backend
+npm run dev
+```
+
+## Debugging Tips
+
+### Enable Verbose Logging
+
+**Backend logs**:
+```bash
+# Follow logs in real-time
+make logs-backend -f
+```
+
+**Check all services**:
+```bash
+make logs
+```
+
+### Test Individual Components
+
+1. **Test Ollama**:
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+2. **Test Backend**:
+   ```bash
+   curl http://localhost:8432/api/maps/health
+   ```
+
+3. **Test Open WebUI**:
+   - Open http://localhost:3210 in browser
+
+### Check Environment Variables
+
+```bash
+# In Docker container
+docker exec heypico-backend env | grep GOOGLE_MAPS_API_KEY
+
+# Local backend
+cd backend
+cat .env
+```
+
+## Getting Help
+
+If issues persist:
+
+1. **Check backend logs** carefully
+2. **Review Google Cloud Console** for API status
+3. **Test with minimal examples** from documentation
+4. **Search GitHub issues**
+5. **Verify all prerequisites** are met
+
+## Common Error Messages
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "API key is required" | Authentication enabled, no key | Add API key to request |
+| "Query is required" | Missing required field | Include query in request body |
+| "Too many requests" | Rate limit exceeded | Wait or increase limits |
+| "OVER_QUERY_LIMIT" | Google Maps quota exceeded | Enable billing |
+| "REQUEST_DENIED" | APIs not enabled | Enable in Google Cloud Console |
+
+<Callout type="info">
+  Most issues are related to configuration. Double-check your .env files and Google Cloud Console settings.
+</Callout>

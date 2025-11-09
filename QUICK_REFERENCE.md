@@ -14,7 +14,7 @@ cd backend && npm install && nano .env && npm run dev
 
 | Service | URL |
 |---------|-----|
-| Open WebUI | http://localhost:3000 |
+| Open WebUI | http://localhost:3210 |
 | Backend API | http://localhost:8432 |
 | Ollama | http://localhost:11434 |
 | API Health | http://localhost:8432/api/maps/health |

@@ -1,0 +1,450 @@
+---
+title: Backend Architecture
+description: Deep dive into the backend API design
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Backend Architecture
+
+Understanding the backend API structure and design patterns.
+
+## Technology Stack
+
+- **Framework**: Hono (lightweight, fast web framework)
+- **Runtime**: Node.js 20+
+- **Language**: TypeScript (strict mode, ESM modules)
+- **Validation**: Zod (runtime type checking)
+- **HTTP Client**: @googlemaps/google-maps-services-js
+
+## Project Structure
+
+```
+backend/
+├── src/
+│   ├── config/
+│   │   └── env.ts              # Environment validation
+│   ├── middleware/
+│   │   ├── auth.ts             # API key authentication
+│   │   ├── errorHandler.ts    # Global error handler
+│   │   └── rateLimit.ts        # Rate limiting
+│   ├── routes/
+│   │   └── maps.ts             # API route handlers
+│   ├── services/
+│   │   └── googleMaps.ts       # Google Maps API wrapper
+│   ├── types/
+│   │   └── maps.ts             # TypeScript types & Zod schemas
+│   └── index.ts                # Application entry point
+├── open-webui-functions/
+│   └── maps_functions.py       # LLM function definitions
+├── package.json
+├── tsconfig.json
+└── Dockerfile
+```
+
+## Middleware Chain
+
+Requests flow through middleware in this order:
+
+```
+1. Logger (hono/logger)
+   ↓
+2. Pretty JSON (hono/pretty-json)
+   ↓
+3. CORS (hono/cors)
+   ↓
+4. Rate Limiter (custom)
+   ↓
+5. Authentication (custom, skips /health)
+   ↓
+6. Route Handler
+   ↓
+7. Error Handler (on error)
+```
+
+## Design Patterns
+
+### 1. Singleton Service Pattern
+
+The Google Maps service is instantiated once and reused:
+
+```typescript
+// services/googleMaps.ts
+export class GoogleMapsService {
+  private client: Client;
+  private apiKey: string;
+
+  constructor() {
+    this.client = new Client({});
+    this.apiKey = env.GOOGLE_MAPS_API_KEY;
+  }
+  
+  // ... methods
+}
+
+// Export singleton instance
+export const googleMapsService = new GoogleMapsService();
+```
+
+**Benefits**:
+- Single API client instance
+- Consistent configuration
+- Easy to mock for testing
+- Memory efficient
+
+### 2. Schema-First Validation
+
+All requests validated with Zod schemas before processing:
+
+```typescript
+// types/maps.ts
+export const SearchPlacesSchema = z.object({
+  query: z.string().min(1, 'Query is required'),
+  location: z.string().optional(),
+  radius: z.number().min(1).max(50000).optional(),
+  type: z.string().optional(),
+});
+
+// routes/maps.ts
+maps.post('/search-places', async (c) => {
+  const body = await c.req.json();
+  const validated = SearchPlacesSchema.parse(body); // Throws on invalid
+  // ... proceed with validated data
+});
+```
+
+**Benefits**:
+- Type safety at runtime
+- Clear validation errors
+- Self-documenting API
+- TypeScript type inference
+
+### 3. Centralized Error Handling
+
+Global error handler catches and formats all errors:
+
+```typescript
+// middleware/errorHandler.ts
+export const errorHandler = (err: Error, c: Context) => {
+  // Handle Zod validation errors
+  if (err instanceof ZodError) {
+    return c.json({
+      success: false,
+      error: {
+        error: 'VALIDATION_ERROR',
+        message: err.errors[0].message,
+        statusCode: 400,
+      },
+    }, 400);
+  }
+  
+  // Handle other errors...
+};
+```
+
+**Benefits**:
+- Consistent error format
+- No try-catch boilerplate
+- Easy to add error types
+- Centralized logging
+
+### 4. Environment Configuration
+
+Type-safe environment variables with Zod:
+
+```typescript
+// config/env.ts
+const envSchema = z.object({
+  PORT: z.coerce.number().default(8432),
+  NODE_ENV: z.enum(['development', 'production']).default('development'),
+  GOOGLE_MAPS_API_KEY: z.string().min(1),
+  API_KEY: z.string().optional(),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
+});
+
+export const env = envSchema.parse(process.env);
+```
+
+**Benefits**:
+- Fails fast on missing config
+- Type-safe access
+- Default values
+- Self-documenting requirements
+
+## Response Format
+
+All responses follow a consistent structure:
+
+### Success Response
+```typescript
+{
+  success: true,
+  data: T  // Generic type for response data
+}
+```
+
+### Error Response
+```typescript
+{
+  success: false,
+  error: {
+    error: string,      // Error code
+    message: string,    // Human-readable message
+    statusCode: number  // HTTP status code
+  }
+}
+```
+
+## Rate Limiting
+
+In-memory rate limiter using IP addresses:
+
+```typescript
+// middleware/rateLimit.ts
+const requests = new Map<string, number[]>();
+
+export const rateLimiter = async (c: Context, next: Next) => {
+  const ip = c.req.header('x-forwarded-for') || 'unknown';
+  const now = Date.now();
+  
+  // Get request timestamps for this IP
+  const timestamps = requests.get(ip) || [];
+  
+  // Remove old timestamps
+  const validTimestamps = timestamps.filter(
+    t => now - t < env.RATE_LIMIT_WINDOW_MS
+  );
+  
+  // Check limit
+  if (validTimestamps.length >= env.RATE_LIMIT_MAX_REQUESTS) {
+    return c.json({
+      success: false,
+      error: {
+        error: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many requests',
+        statusCode: 429,
+      },
+    }, 429);
+  }
+  
+  // Add current request
+  validTimestamps.push(now);
+  requests.set(ip, validTimestamps);
+  
+  await next();
+};
+```
+
+**Limitations**:
+- In-memory (resets on restart)
+- Not suitable for multi-instance deployments
+
+**Production Alternative**:
+Use Redis for distributed rate limiting.
+
+## Authentication
+
+Optional API key authentication:
+
+```typescript
+// middleware/auth.ts
+export const apiKeyAuth = async (c: Context, next: Next) => {
+  // Skip if API_KEY not configured
+  if (!env.API_KEY) {
+    await next();
+    return;
+  }
+
+  // Check Authorization header
+  const authHeader = c.req.header('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    if (token === env.API_KEY) {
+      await next();
+      return;
+    }
+  }
+
+  // Check query parameter
+  const apiKey = c.req.query('api_key');
+  if (apiKey === env.API_KEY) {
+    await next();
+    return;
+  }
+
+  return c.json({
+    success: false,
+    error: {
+      error: 'UNAUTHORIZED',
+      message: 'Invalid API key',
+      statusCode: 401,
+    },
+  }, 401);
+};
+```
+
+## Google Maps Service
+
+Wrapper around Google Maps APIs:
+
+```typescript
+class GoogleMapsService {
+  async searchPlaces(params: SearchPlacesRequest): Promise<PlaceResult[]> {
+    const response = await this.client.textSearch({
+      params: {
+        query: params.query,
+        key: this.apiKey,
+        // ... other params
+      },
+    });
+
+    // Check status
+    if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Maps API error: ${response.data.status}`);
+    }
+
+    // Format results
+    return response.data.results.map(place => this.formatPlaceResult(place));
+  }
+
+  private formatPlaceResult(place: any): PlaceResult {
+    return {
+      placeId: place.place_id,
+      name: place.name,
+      // ... format other fields
+      googleMapsUrl: this.generatePlaceUrl(place.place_id),
+      embedMapUrl: this.generateEmbedMapUrl(lat, lng, place.place_id),
+    };
+  }
+}
+```
+
+**Key Features**:
+- Consistent error handling
+- Response formatting
+- URL generation (maps links, embed URLs)
+- Centralized API key management
+
+## ESM Module System
+
+The project uses ES modules (`"type": "module"` in package.json):
+
+```typescript
+//  Correct: Use .js extension even for .ts files
+import { env } from './config/env.js';
+
+//  Wrong: Missing extension
+import { env } from './config/env';
+```
+
+<Callout type="warn">
+  All imports must include `.js` extension, even when importing `.ts` files. This is required for ESM compatibility.
+</Callout>
+
+## Type Safety
+
+Full TypeScript coverage with strict mode:
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    // ...
+  }
+}
+```
+
+**Benefits**:
+- Catches errors at compile time
+- Better IDE autocomplete
+- Self-documenting code
+- Easier refactoring
+
+## CORS Configuration
+
+```typescript
+app.use('*', cors({
+  origin: [
+    'http://localhost:3210',  // Open WebUI
+    'http://localhost:8080',  // Open WebUI alternative
+  ],
+  credentials: true,
+}));
+```
+
+## Performance Considerations
+
+### 1. Minimal Dependencies
+Only essential packages installed:
+- hono (web framework)
+- @googlemaps/google-maps-services-js
+- zod (validation)
+- dotenv (env loading)
+
+### 2. Fast Framework
+Hono is one of the fastest Node.js frameworks:
+- Minimal overhead
+- Tree-shakeable
+- Small bundle size
+
+### 3. Async/Await
+All I/O operations are async:
+- Non-blocking
+- Better throughput
+- Handles concurrent requests efficiently
+
+## Scalability
+
+### Stateless Design
+- No session storage
+- No in-memory user data
+- Easy to horizontally scale
+
+### Database Considerations
+Current setup is stateless. For production, consider adding:
+- PostgreSQL for user accounts
+- Redis for rate limiting
+- Redis for response caching
+
+## Security Best Practices
+
+1. **API Key Protection**: Google Maps key never exposed
+2. **Input Validation**: All inputs validated with Zod
+3. **Rate Limiting**: Prevents abuse
+4. **CORS**: Restricts origins
+5. **Error Messages**: Don't leak sensitive info
+6. **TypeScript**: Type safety prevents bugs
+
+## Deployment
+
+### Docker Build
+
+```dockerfile
+# Build stage
+FROM node:20-alpine as builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY package*.json ./
+RUN npm ci --only=production
+CMD ["node", "dist/index.js"]
+```
+
+Multi-stage build keeps image small.
+
+## Next Steps
+
+- [LLM Integration](/docs/architecture/llm-integration)
+- [Security Design](/docs/architecture/security)
+- [Deployment Guide](/docs/deployment/docker)

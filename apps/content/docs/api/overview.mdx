@@ -1,0 +1,129 @@
+---
+title: API Overview
+description: Overview of the HeyPico Maps Backend API
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# API Overview
+
+The HeyPico Maps Backend API provides a secure bridge between your LLM and Google Maps services.
+
+## Base URL
+
+```
+http://localhost:8432
+```
+
+For production, replace with your deployed backend URL.
+
+## Authentication
+
+<Callout type="info">
+  Authentication is optional and disabled by default. Enable it by setting `API_KEY` in your environment variables.
+</Callout>
+
+When enabled, include your API key in requests:
+
+**Authorization Header (Recommended):**
+```bash
+Authorization: Bearer your-api-key-here
+```
+
+**Query Parameter:**
+```bash
+?api_key=your-api-key-here
+```
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/maps/health` | Health check (no auth required) |
+| POST | `/api/maps/search-places` | Search for places by text query |
+| POST | `/api/maps/nearby-places` | Find places near a location |
+| POST | `/api/maps/place-details` | Get detailed place information |
+| POST | `/api/maps/directions` | Get route directions |
+
+## Response Format
+
+All responses follow a consistent structure:
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data here
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "error": "ERROR_CODE",
+    "message": "Human readable error message",
+    "statusCode": 400
+  }
+}
+```
+
+## Rate Limiting
+
+Default limits:
+- **100 requests per minute** per IP address
+- Configurable via environment variables
+
+When rate limit is exceeded:
+- Status Code: `429 Too Many Requests`
+- Header: `Retry-After: <seconds>`
+
+## Content Type
+
+All POST requests must use:
+```
+Content-Type: application/json
+```
+
+## CORS
+
+Allowed origins:
+- `http://localhost:3210` (Open WebUI)
+- `http://localhost:8080` (Open WebUI alternative)
+
+## Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid input |
+| 401 | Unauthorized - Missing/invalid API key |
+| 404 | Not Found - Endpoint doesn't exist |
+| 429 | Too Many Requests - Rate limit exceeded |
+| 500 | Internal Server Error - Server issue |
+
+## Quick Example
+
+```bash
+curl -X POST http://localhost:8432/api/maps/search-places \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "coffee shops in Seattle"
+  }'
+```
+
+## Next Steps
+
+Explore each endpoint in detail:
+
+- [Search Places](/docs/api/search-places)
+- [Nearby Places](/docs/api/nearby-places)
+- [Place Details](/docs/api/place-details)
+- [Directions](/docs/api/directions)
+- [Authentication](/docs/api/authentication)
+- [Error Handling](/docs/api/errors)

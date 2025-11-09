@@ -1,0 +1,130 @@
+---
+title: Introduction
+description: LLM-powered Google Maps integration system
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# HeyPico Maps - LLM + Google Maps Integration
+
+A **production-ready** system that integrates a **Local LLM** with **Google Maps API**, allowing users to search for places and get directions through natural language queries.
+
+**GitHub Repository:** [https://github.com/alfariiizi/heypico-google-maps-chat](https://github.com/alfariiizi/heypico-google-maps-chat)
+
+##  What is This?
+
+This project demonstrates how to build a modern AI-powered location service by combining:
+
+- **Local LLM** (Ollama) for natural language understanding
+- **Google Maps API** for location data and directions
+- **Backend API** (Hono + TypeScript) as a secure bridge
+- **Open WebUI** for the chat interface
+
+##  Key Features
+
+<Cards>
+  <Card 
+    title="Natural Language Queries" 
+    description="Ask in plain English: 'Find coffee shops near me' or 'How do I get to Central Park?'"
+  />
+  <Card 
+    title="Secure API Integration" 
+    description="Google Maps API key never exposed to client. Rate limiting and authentication built-in."
+  />
+  <Card 
+    title="Production Ready" 
+    description="Full TypeScript, Zod validation, error handling, and Docker deployment."
+  />
+  <Card 
+    title="Easy Setup" 
+    description="Docker Compose handles everything. One command to start all services."
+  />
+</Cards>
+
+##  Architecture
+
+```
+User: "Find Italian restaurants in New York"
+    ↓
+Open WebUI (localhost:3000)
+    ↓
+Local LLM - Ollama (llama3.2/mistral)
+    ↓ [Function Call]
+Backend API - Hono (localhost:8432)
+    ↓
+Google Maps API
+    ↓
+Response with maps & links
+```
+
+##  Quick Start
+
+Get started in 3 simple steps:
+
+<Cards>
+  <Card 
+    title="Setup Guide" 
+    href="/docs/getting-started/setup"
+    description="Complete setup instructions for Docker and manual installation"
+  />
+  <Card 
+    title="API Reference" 
+    href="/docs/api/overview"
+    description="Detailed API documentation for all endpoints"
+  />
+  <Card 
+    title="Architecture" 
+    href="/docs/architecture/overview"
+    description="Understanding the system design and components"
+  />
+</Cards>
+
+##  What's Included
+
+-  **Docker Setup**: Ollama + Open WebUI (`docker-compose.yml`)
+-  **Backend API**: Production-ready Hono + TypeScript API
+-  **Google Maps Integration**: Secure API wrapper with all major endpoints
+-  **Open WebUI Functions**: Python functions for LLM integration
+-  **Comprehensive Documentation**: This documentation site!
+
+##  What You'll Learn
+
+This project demonstrates:
+
+- Modern TypeScript development with strict mode
+- REST API design with Hono framework
+- Third-party API integration (Google Maps)
+- LLM function calling patterns
+- Security best practices (API key protection, rate limiting)
+- Error handling & validation with Zod
+- Clean code architecture
+- Docker containerization
+
+##  Service URLs
+
+Once running, you can access:
+
+- **This Documentation**: http://localhost:3001
+- **Open WebUI**: http://localhost:3210
+- **Backend API**: http://localhost:8432
+- **Ollama**: http://localhost:11434
+
+##  Ready to Start?
+
+<Cards>
+  <Card 
+    title="Installation" 
+    href="/docs/getting-started/installation"
+    description="Install and run the project"
+  />
+  <Card 
+    title="Configuration" 
+    href="/docs/getting-started/configuration"
+    description="Configure Google Maps API and environment variables"
+  />
+  <Card 
+    title="Testing" 
+    href="/docs/getting-started/testing"
+    description="Test your installation with example queries"
+  />
+</Cards>
